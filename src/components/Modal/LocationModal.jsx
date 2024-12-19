@@ -1,11 +1,21 @@
+import { da } from "date-fns/locale";
 import React, { useState, useEffect } from "react";
 
-const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) => {
+const LocationModal = ({
+  onClose,
+  data,
+  modalFunction,
+  onAddSuccess,
+  onEditSuccess,
+  // onAddFailed,
+  // onEditFailed,
+  position,
+}) => {
   const [formData, setFormData] = useState(data);
   const [visible, setVisible] = useState(false);
   const [image, setImage] = useState({});
   const [types, setTypes] = useState([]);
-  const [type, setType] = useState();
+  const [type, setType] = useState(formData?.type);
   const accessToken = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
@@ -16,10 +26,6 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-  };
-
-  const handleSaveLocation = (placeId) => {
-    // ...something
   };
 
   const handleUploadFile = async (e) => {
@@ -41,43 +47,45 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
       const data = await response.json();
       console.log(data);
       if (data) {
-        setImage(data.result);
+        if (data.result) {
+          setImage(data.result);
+        }
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const fetchTypes = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:8888/api/v1/location/locations/type",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken.result.accessToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      if (data) {
+        setTypes(data.result);
       }
     } catch (error) {
       console.log(error);
     }
   };
   useEffect(() => {
-    const fetchTypes = async () => {
-      try {
-        const response = await fetch(
-          "http://localhost:8888/api/v1/location/locations/type",
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken.result.accessToken}`,
-            },
-          }
-        );
-
-        const data = await response.json();
-        console.log(data);
-        if (data) {
-          setTypes(data.result);
-        }
-      } catch (error) {
-        console.log(error);
-      }
-    };
     fetchTypes();
-  }, []);
+  }, [accessToken.result.accessToken]);
+
   const handleAddLocation = async () => {
     // check image.id = null thì báo lỗi, ngược lại thành công
     const data2 = {
-      ...data,
+      ...formData,
       imageId: image?.id,
-
       type,
     };
     try {
@@ -92,19 +100,59 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
           body: JSON.stringify(data2),
         }
       );
-      onSuccess()
-      setTimeout(() => {
-        onClose()
-      }, 3000)
+      const data = await response.json();
+      console.log(data);
+
+      if ((data.code = 1000)) {
+        onAddSuccess("success");
+        onClose();
+      }
       console.log(response);
     } catch (error) {
-      onFailed()
+      onAddSuccess("failed");
       console.log(error);
     }
   };
+
+  const handleSaveLocation = async (placeId) => {
+    if (!image.id && !formData?.thumbnail.id) return;
+    // check image.id = null thì báo lỗi, ngược lại thành công
+    const editData = {
+      ...formData,
+      imageId: image?.id || formData?.thumbnail.id,
+      type,
+    };
+    console.log(formData);
+    console.log(editData);
+
+    try {
+      const response = await fetch(
+        `http://localhost:8888/api/v1/location/locations/${placeId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken.result.accessToken}`,
+          },
+          body: JSON.stringify(editData),
+        }
+      );
+      console.log(response);
+      const data = await response.json();
+      if (data.code === 1000) {
+        onEditSuccess("success");
+        onClose();
+      }
+    } catch (error) {
+      onEditSuccess("failed");
+      console.log(error);
+    }
+  };
+
   const handleChangeType = (type) => {
     setType(type.target.value);
   };
+
   return (
     <div
       className="relative z-30"
@@ -113,38 +161,46 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
       aria-modal="true"
     >
       <div
-        className={`fixed inset-0 w-screen overflow-y-auto transition-transform transform ${
+        className={`fixed ${
+          position === "left" ? "inset-0" : "top-0 left-[-215%]"
+        } w-screen overflow-y-auto transition-transform transform ${
           visible ? "translate-y-0" : "translate-y-[-100%]"
         } duration-300 ease-in-out`}
       >
         <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-          <form className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
-            <h2 className="text-center py-2 text-xl">
+          <form className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-md transition-all my-4 pt-2 sm:w-full sm:max-w-2xl">
+            <h2 className="text-center pb-1 text-xl">
               {`${modalFunction === "Edit" ? "Sửa" : "Thêm"}`} địa điểm
             </h2>
             <div>
-              {!image.id ? (
+              {!formData?.thumbnail?.id ? (
                 <div className="px-4">
-                  <h3 className="text-center">Thumbnail không có sẵn</h3>
+                  <h3 className="text-center mb-3">Thumbnail không có sẵn</h3>
                   <input
                     type="file"
                     name="thumbnail"
-                    id="thumbnail"
-                    className="block w-full rounded-md border-0 py-1 px-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    className="thumbnail block w-full rounded-md border-0 py-1 px-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                     onChange={handleUploadFile}
+                    required
                   />
                 </div>
               ) : (
                 <>
                   <div className="flex justify-center">
-                    <img width="200" height="200" src={image?.url} alt="" />
+                    <img
+                      width="200"
+                      height="200"
+                      src={image?.url || formData?.thumbnail?.url}
+                      alt=""
+                    />
                   </div>
-                  <label
-                    htmlFor="thumbnail"
-                    className="block text-sm font-medium leading-6 text-gray-900"
-                  >
-                    Thumbnail
-                  </label>
+                  <input
+                    type="file"
+                    name="thumbnail"
+                    className="thumbnail block w-full rounded-md border-0 py-1 px-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    onChange={handleUploadFile}
+                    required
+                  />
                 </>
               )}
             </div>
@@ -162,7 +218,7 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
                     name="name"
                     id="name"
                     className="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    value={formData.name || "Không có"}
+                    value={formData?.name}
                     onChange={handleInputChange}
                   />
                 </div>
@@ -171,7 +227,7 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
                     htmlFor="type"
                     className="block text-sm font-medium leading-6 text-gray-900"
                   >
-                    Loại địa điểm
+                    Danh mục
                   </label>
                   <input
                     type="text"
@@ -179,8 +235,9 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
                     id="type"
                     required
                     className="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    value={formData.type || "Không có"}
+                    value={formData?.category || "Không có"}
                     onChange={handleInputChange}
+                    disabled
                   />
                 </div>
               </div>
@@ -197,7 +254,7 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
                     name="lat"
                     id="lat"
                     className="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    value={formData.lat || "Không có"}
+                    value={formData?.lat || "Không có"}
                     onChange={handleInputChange}
                     disabled
                   />
@@ -214,23 +271,34 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
                     name="lon"
                     id="lon"
                     className="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    value={formData.lon || ""}
+                    value={formData?.lon || ""}
                     onChange={handleInputChange}
                     disabled
                   />
                 </div>
                 <div>
-                  <select onChange={handleChangeType}>
-                    {types.length > 0 &&
-                      types.map((type) => (
-                        <option value={type} defaultValue={type}>
-                          {type}
-                        </option>
-                      ))}
-                  </select>
+                  <label
+                    htmlFor="type"
+                    className="block text-sm font-medium leading-6 text-gray-900"
+                  >
+                    Loại địa điểm
+                  </label>
+                  <div className="rounded-md border border-1 border-gray-300 p-[0.4rem]">
+                    <select onChange={handleChangeType}>
+                      {types.length > 0 &&
+                        types.map((type) => (
+                          <option
+                            selected={type === formData?.type}
+                            value={type}
+                            defaultValue={type}
+                          >
+                            {type}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                 </div>
               </div>
-              <h3 className="mt-3 text-xl text-center">Địa chỉ</h3>
               <div className="flex items-center w-full gap-4 mt-2">
                 <div className="flex-1">
                   <label
@@ -244,7 +312,7 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
                     name="housenumber"
                     id="housenumber"
                     className="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    value={formData.address?.housenumber || "Không có"}
+                    value={formData?.address?.housenumber || "Không có"}
                     onChange={handleInputChange}
                   />
                 </div>
@@ -260,7 +328,7 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
                     name="state"
                     id="state"
                     className="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    value={formData.address?.state || "Không có"}
+                    value={formData?.address?.state || "Không có"}
                     onChange={handleInputChange}
                   />
                 </div>
@@ -278,7 +346,7 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
                     name="country"
                     id="country"
                     className="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    value={formData.address?.country || "Không có"}
+                    value={formData?.address?.country || "Không có"}
                     onChange={handleInputChange}
                   />
                 </div>
@@ -294,9 +362,65 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
                     name="countryCode"
                     id="countryCode"
                     className="block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    value={formData.address?.country_code || "Không có"}
+                    value={formData?.address?.country_code || "Không có"}
                     onChange={handleInputChange}
                   />
+                </div>
+              </div>
+              <div className="flex items-center w-full gap-4 mt-2">
+                <div className="flex-1">
+                  <label
+                    htmlFor=""
+                    className="block text-sm font-medium leading-6 text-gray-900"
+                  >
+                    Bouding box
+                  </label>
+                  <div className="py-2 gap-2 flex flex-col ">
+                    <div className="flex items-center">
+                      <label
+                        htmlFor=""
+                        className="block text-sm font-medium leading-6 text-gray-900"
+                      >
+                        Min lat
+                      </label>
+                      <span className="ml-2 p-2 border rounded-md">
+                        {data.boundingbox[0]}
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      <label
+                        htmlFor=""
+                        className="block text-sm font-medium leading-6 text-gray-900"
+                      >
+                        Max lat
+                      </label>
+                      <span className="ml-2 p-2 border rounded-md">
+                        {data.boundingbox[1]}
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      <label
+                        htmlFor=""
+                        className="block text-sm font-medium leading-6 text-gray-900"
+                      >
+                        Min lon
+                      </label>
+                      <span className="ml-2 p-2 border rounded-md">
+                        {data.boundingbox[2]}
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      <label
+                        htmlFor=""
+                        className="block text-sm font-medium leading-6 text-gray-900"
+                      >
+                        Max lon
+                      </label>
+                      <span className="ml-2 p-2 border rounded-md">
+                        {data.boundingbox[3]}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -306,7 +430,7 @@ const LocationModal = ({ onClose, data, modalFunction, onSuccess, onFailed }) =>
                 <button
                   type="button"
                   className="inline-flex w-full justify-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#0073A8] sm:ml-3 sm:w-auto"
-                  onClick={() => handleSaveLocation(data.placeId)}
+                  onClick={() => handleSaveLocation(data?.place_id)}
                 >
                   Lưu
                 </button>

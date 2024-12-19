@@ -10,38 +10,42 @@ import {
   useMap,
   useMapEvents,
 } from "react-leaflet";
-import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import userOnMapIcon from "../assets/user_on_map_2.png";
-import AdminNav from "../components/Navbar/AdminNav";
 import { useNavigate } from "react-router-dom";
-import LocationSidebar from "../components/Sidebar/LocationSidebar"; // Import LocationSidebar
+import LocationSidebar from "../components/Sidebar/LocationSidebar";
 import { removeVietnameseTones } from "../components/Admin/removeVietnameseTones";
-import toast, { Toaster } from 'react-hot-toast';
+import toast, { Toaster } from "react-hot-toast";
+import useToggle from "../hooks/useToggle";
 
 const LocationManagementMap = () => {
   const [clickedPosition, setClickedPosition] = useState(null);
   const [currentPosition, setCurrentPosition] = useState(null);
+  const [beginingPosition, setBeginningPosition] = useState(null);
+  const [isSettingNewPosition, setIsSettingNewPosition] = useState(false);
   const [locationName, setLocationName] = useState("");
-  const [hasMoved, setHasMoved] = useState(false);
   const [LocationSidebarOpen, setLocationSidebarOpen] = useState(false); // State for LocationSidebar visibility
-  const [locationData, setLocationData] = useState(null); // State for LocationSidebar data
+  const [locationData, setLocationData] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
+  const [isInDB, setIsInDB] = useState(false);
+  const [isSearchShowing, setIsSearchShowing] = useState(false);
 
   const accessToken = JSON.parse(localStorage.getItem("user"));
-
-  const mapRef = useRef();
+  const { isToggle: isEditBouding, handleToggle: setEditBouding } = useToggle();
+  const [type, setType] = useState("");
   const markerRef = useRef();
   const navigate = useNavigate();
-
+  const [boundingBox, setBoundingBox] = useState(
+    locationData ? locationData.boundingBox : null
+  );
   const customIcon = new L.Icon({
     iconUrl: userOnMapIcon,
     iconSize: [38, 38],
   });
+
   // Fetch the location name via reverse geocoding
   const fetchLocationName = async (lat, lon) => {
-    console.log(lat);
-    console.log(lon);
+    //Tim trong database
     const url = `http://localhost:8888/api/v1/location/locations/lookup?lon=${lon}&lat=${lat}`;
     try {
       const response = await fetch(url, {
@@ -51,13 +55,13 @@ const LocationManagementMap = () => {
           Authorization: `Bearer ${accessToken.result.accessToken}`,
         },
       });
-      
+
       const data = await response.json();
-      console.log(data);
-      if (data.result && data.result.address.country === "Việt Nam") {
-        setLocationName(data.result.name);
-        setLocationData(data.result);
+      if (data?.result && data?.result?.address?.country === "Việt Nam") {
+        setLocationName(data?.result?.name);
+        setLocationData(data?.result);
         setLocationSidebarOpen(true);
+        setIsInDB(false);
       } else {
         console.log("Location is not in Vietnam.");
       }
@@ -66,12 +70,63 @@ const LocationManagementMap = () => {
     }
   };
 
+  // tim qua ben thu 3
+  const getLocationReverse = async () => {
+    const url = `http://localhost:8888/api/v1/location/locations/search/reverse?lon=${clickedPosition.lng}&lat=${clickedPosition.lat}`;
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken.result.accessToken}`,
+        },
+      });
+
+      const data = await response.json();
+      if (data?.result && data?.result?.address?.country === "Việt Nam") {
+        setLocationName(data?.result?.name);
+        setLocationData(data?.result);
+        setLocationSidebarOpen(true);
+        setIsInDB(true);
+      } else {
+        console.log("Location is not in Vietnam.");
+      }
+    } catch (error) {
+      console.error("Error fetching location data:", error);
+    }
+  };
+
+  const handleWhenNoInputSearchFound = async (string) => {
+    const url = `http://localhost:8888/api/v1/location/locations/search?q=${string}&limit=5&type=FUNCTIONAL`;
+
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken.result.accessToken}`,
+        },
+      });
+      const data = await response.json();
+      if (
+        data.result &&
+        data.result.some((location) => location.address.country === "Việt Nam")
+      ) {
+        setSearchResults(
+          data.result.filter(
+            (location) => location.address.country === "Việt Nam"
+          )
+        );
+        console.log(data);
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    }
+  };
+
   const handleSearchByInput = useCallback(
     debounce(async (string) => {
-      const [front, back] = removeVietnameseTones(string).split(" ");
-      const url = `http://localhost:8888/api/v1/location/locations/search?q=${
-        back ? `${front}%20${back}` : `${front}`
-      }&limit=5`;
+      const url = `http://localhost:8888/api/v1/location/locations?q=${string}&limit=5&type=FUNCTIONAL`;
 
       try {
         const response = await fetch(url, {
@@ -93,31 +148,54 @@ const LocationManagementMap = () => {
               (location) => location.address.country === "Việt Nam"
             )
           );
+          console.log(data);
         } else {
-          console.log("No locations found in Vietnam.");
+          handleWhenNoInputSearchFound(string);
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
       }
-    }, 300),
+    }, 500),
     []
   );
 
   const handleInputChange = (e) => {
     const value = e.target.value;
     setLocationName(value); // Update input value
-    handleSearchByInput(value); // Call the debounced function
+    handleSearchByInput(value.trim()); // Call the debounced function
+    // trim here
+    setIsSearchShowing(true);
+  };
+
+  const handleLocationSearchClicked = (data) => {
+    setClickedPosition(null);
+    setIsSearchShowing(false);
+    const newLocation = {
+      lat: parseFloat(data.lat),
+      lng: parseFloat(data.lon),
+    };
+    setCurrentPosition(newLocation);
+    setLocationData(data);
+  };
+
+  const moveToBegining = () => {
+    const { latitude, longitude } = beginingPosition;
+    setCurrentPosition({ lat: latitude, lng: longitude });
+    setLocationData(null);
+    setClickedPosition(null);
+    setLocationSidebarOpen(false);
+    setLocationName("");
+    setIsSettingNewPosition(false);
   };
 
   // Automatically move map to the current position only once
   const MoveToCurrentLocation = ({ position }) => {
     const map = useMap();
     useEffect(() => {
-      if (position && !hasMoved) {
+      if (position && !isSettingNewPosition) {
         map.flyTo([position.lat, position.lng], 13); // Adjust the zoom level if necessary
-        setHasMoved(true); // Set flag to true so the map doesn't move again
       }
-    }, [position, map, hasMoved]);
+    }, [position, isSettingNewPosition]);
 
     return null;
   };
@@ -130,6 +208,7 @@ const LocationManagementMap = () => {
           const { latitude, longitude } = position.coords;
           setCurrentPosition({ lat: latitude, lng: longitude });
           fetchLocationName(latitude, longitude);
+          setBeginningPosition(position.coords);
         },
         (error) => {
           console.error("Error getting current location:", error);
@@ -138,55 +217,122 @@ const LocationManagementMap = () => {
     }
   }, []);
 
-  const getLocationReverse = async () => {
-    const url = `http://localhost:8888/api/v1/location/locations/search/reverse?lon=${clickedPosition.lng}&lat=${clickedPosition.lat}`;
-    try {
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken.result.accessToken}`,
-        },
-      });
-      
-      const data = await response.json();
-      console.log(data.result);
-      if (data.result && data.result.address.country === "Việt Nam") {
-        setLocationName(data.result.name);
-        setLocationData(data.result);
-        setLocationSidebarOpen(true);
-      } else {
-        console.log("Location is not in Vietnam.");
-      }
-    } catch (error) {
-      console.error("Error fetching location data:", error);
+  // Reset isSettingNewPosition when location data is set
+  useEffect(() => {
+    if (locationData) {
+      setIsSettingNewPosition(false); // Reset the flag after fetching location data
     }
-  }
+  }, [locationData]);
 
   // Marker for clicked position
   const LocationMarker = () => {
     useMapEvents({
       click(event) {
         const { lat, lng } = event.latlng;
+        setLocationData(null);
         setLocationSidebarOpen(false);
         setClickedPosition({ lat, lng });
+        setCurrentPosition(null);
         fetchLocationName(lat, lng);
+        setIsSettingNewPosition(true);
       },
     });
 
     return clickedPosition ? (
-      <Marker
-        position={[clickedPosition.lat, clickedPosition.lng]}
-        icon={customIcon}
-        ref={markerRef}
-      >
-        <Popup>
-          <div className="flex flex-col items-center">
-          <h3>Địa điểm chưa được thêm</h3>
-          <button className="flex justify-center bg-white py-2 px-4 mt-2 border rounded border-solid border-black hover:bg-black hover:text-white" onClick={getLocationReverse}>Thêm</button>
-          </div>
-        </Popup>
-      </Marker>
+      locationData ? (
+        <Marker
+          position={[clickedPosition.lat, clickedPosition.lng]}
+          icon={customIcon}
+          ref={markerRef}
+        >
+          <Popup>
+            <div className="flex flex-col items-center">
+              <h3>{locationData.name}</h3>
+            </div>
+          </Popup>
+        </Marker>
+      ) : (
+        <Marker
+          position={[clickedPosition.lat, clickedPosition.lng]}
+          icon={customIcon}
+          ref={markerRef}
+        >
+          <Popup>
+            <div className="flex flex-col items-center">
+              <h3>Địa điểm chưa được thêm</h3>
+              <button
+                className="flex justify-center bg-white py-2 px-4 mt-2 border rounded border-solid border-black hover:bg-black hover:text-white"
+                onClick={getLocationReverse}
+              >
+                Thêm
+              </button>
+            </div>
+          </Popup>
+        </Marker>
+      )
+    ) : null;
+  };
+
+  const BoudingBoxMarker = () => {
+    useMapEvents({
+      click(event) {
+        const { lat, lng } = event.latlng;
+
+        handleUpdateBouding(type, lng, lat);
+      },
+    });
+    console.log(locationData.boundingbox);
+
+    useEffect(() => {
+      setBoundingBox(locationData.boundingbox);
+    }, []);
+    return boundingBox ? (
+      <>
+        <Marker
+          position={[parseFloat(boundingBox[0]), parseFloat(boundingBox[2])]}
+          icon={customIcon}
+          ref={markerRef}
+        >
+          <Popup>
+            <div className="flex flex-col items-center">
+              <h3>Bounding box</h3>
+            </div>
+          </Popup>
+        </Marker>
+        <Marker
+          position={[parseFloat(boundingBox[1]), parseFloat(boundingBox[2])]}
+          icon={customIcon}
+          ref={markerRef}
+        >
+          <Popup>
+            <div className="flex flex-col items-center">
+              <h3>Bounding box</h3>
+            </div>
+          </Popup>
+        </Marker>
+        <Marker
+          position={[parseFloat(boundingBox[1]), parseFloat(boundingBox[3])]}
+          icon={customIcon}
+          ref={markerRef}
+        >
+          <Popup>
+            <div className="flex flex-col items-center">
+              <h3>Bounding box</h3>
+            </div>
+          </Popup>
+        </Marker>
+        <Marker
+          position={[parseFloat(boundingBox[0]), parseFloat(boundingBox[3])]}
+          icon={customIcon}
+          ref={markerRef}
+        >
+          <Popup>
+            <div className="flex flex-col items-center">
+              <h3>Bounding box</h3>
+            </div>
+          </Popup>
+        </Marker>
+      </>
     ) : null;
   };
 
@@ -197,24 +343,57 @@ const LocationManagementMap = () => {
     }
   }, [locationName]);
 
-  const handleLocationStatus = (status) => {
-    if(status === "success") {
-      toast.success("Thêm thành công")
+  const handleLocationStatus = (status, type) => {
+    if (status === "success") {
+      toast.success(`${type} thành công`);
+      setLocationSidebarOpen(false);
     } else {
-      toast.error("Thêm thất bại")
+      toast.error(`${type} thất bại`);
     }
-  }
+  };
+
+  const handleUpdateBouding = (type, lon, lat) => {
+    if (!boundingBox) return;
+    if (type === "minX") {
+      boundingBox[2] = lon;
+    } else if (type == "maxX") {
+      boundingBox[3] = lon;
+    } else if (type == "minY") {
+      boundingBox[0] = lat;
+    } else if (type == "maxY") {
+      boundingBox[1] = lat;
+    }
+    setBoundingBox([...boundingBox]);
+  };
+
+  const handleCancelEdit = () => {
+    locationData && setBoundingBox[locationData.boundingBox];
+    setEditBouding(false);
+  };
+
+  const handleCofirmUpdate = () => {
+    setLocationData({ ...locationData, boundingBox });
+    setEditBouding(false);
+  };
 
   return (
     <div className="h-screen w-full flex flex-col dark:bg-gray-50 dark:text-gray-800">
-      {/* <AdminNav></AdminNav> */}
-      <Toaster/>
+      <Toaster />
       <LocationSidebar
+        isEditBounding={isEditBouding}
+        handleEditBouding={setEditBouding}
         isOpen={LocationSidebarOpen}
         locationData={locationData}
         locationPosition="left"
-        onSuccess={handleLocationStatus}
+        setType={setType}
+        onEdit={handleCofirmUpdate}
+        onCancel={handleCancelEdit}
+        onAddSuccess={handleLocationStatus}
+        onEditSuccess={handleLocationStatus}
+        type={type}
+        isInDB={isInDB}
       />
+
       <div className={`w-full h-screen mx-auto dark:text-gray-800`}>
         <div className="overflow-x-auto">
           <div className="w-full overflow-hidden">
@@ -226,6 +405,10 @@ const LocationManagementMap = () => {
                     id="locationName"
                     value={locationName}
                     onChange={handleInputChange}
+                    onClick={() => {
+                      setLocationName("");
+                      setSearchResults([]);
+                    }}
                     className="w-full border-none outline-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     placeholder="Nhập tên địa điểm để tìm kiếm"
                   />
@@ -267,31 +450,47 @@ const LocationManagementMap = () => {
                       </div>
                     )}
                   </button>
-                  {searchResults && searchResults.length > 0 && (
-                    <ul className="absolute w-[26.5rem] top-[98%] left-[0.5rem] bg-white mt-2 rounded-lg z-10">
-                      {searchResults.map((result, index) => (
-                        <li
-                          key={index}
-                          className="cursor-pointer hover:bg-gray-200 rounded-lg px-4 py-2 border-b"
-                          onClick={() => {
-                            setLocationSidebarOpen(true); // Open the sidebar
-                            setLocationName(result.display_name); // Update input field
-                            setLocationData(result);
-                            setSearchResults([]); // Clear search results
-                          }}
-                        >
-                          {result.display_name}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  {isSearchShowing &&
+                    searchResults &&
+                    searchResults.length > 0 && (
+                      <ul className="absolute w-[26.5rem] top-[98%] left-[0.5rem] bg-white mt-2 rounded-lg z-10">
+                        {searchResults.map((result, index) => (
+                          <li
+                            key={index}
+                            className="cursor-pointer hover:bg-gray-200 rounded-lg px-4 py-2 border-b"
+                            onClick={() => {
+                              setLocationSidebarOpen(true); // Open the sidebar
+                              setLocationName(result.display_name); // Update input field
+                              setLocationData(result);
+                              setSearchResults([]); // Clear search results
+                              handleLocationSearchClicked(result);
+                            }}
+                          >
+                            {result.display_name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                 </div>
-                <button
-                  className="px-4 py-2 border rounded border-solid border-black hover:bg-black hover:text-white"
-                  onClick={() => navigate("/Location")}
-                >
-                  Quay lại
-                </button>
+                <div className="flex">
+                  <button
+                    className="w-9 h-9 p-2 rounded bg-white flex items-center mr-4"
+                    onClick={moveToBegining}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 384 512"
+                    >
+                      <path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z" />
+                    </svg>
+                  </button>
+                  <button
+                    className="px-4 py-2 border rounded border-solid border-black hover:bg-black hover:text-white"
+                    onClick={() => navigate("/Location")}
+                  >
+                    Quay lại
+                  </button>
+                </div>
               </div>
               <MapContainer
                 center={
@@ -307,7 +506,7 @@ const LocationManagementMap = () => {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
 
-                <LocationMarker />
+                {isEditBouding ? <BoudingBoxMarker /> : <LocationMarker />}
 
                 {/* Move map to current position when available */}
                 {currentPosition && (
@@ -320,7 +519,7 @@ const LocationManagementMap = () => {
                     position={[currentPosition.lat, currentPosition.lng]}
                     icon={customIcon}
                   >
-                    <Popup>You are here: {locationName}</Popup>
+                    <Popup>Bạn đang ở đây</Popup>
                   </Marker>
                 )}
               </MapContainer>

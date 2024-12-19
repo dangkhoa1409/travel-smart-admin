@@ -10,7 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ckeditor/ckeditor5-build-classic": "^43.2.0",
+    "@ckeditor/ckeditor5-react": "^9.3.0",
+    "@emotion/react": "^11.13.3",
+    "@emotion/styled": "^11.13.0",
     "@heroicons/react": "^2.1.5",
+    "@hookform/resolvers": "^3.9.0",
+    "@mui/material": "^6.1.2",
     "@reduxjs/toolkit": "^2.2.7",
     "@tanstack/react-query": "^5.51.21",
     "@types/leaflet-routing-machine": "^3.2.8",
@@ -32,6 +38,7 @@
     "react-chartjs-2": "^5.2.0",
     "react-date-range": "^2.0.1",
     "react-dom": "^18.3.1",
+    "react-hook-form": "^7.53.0",
     "react-hot-toast": "^2.4.1",
     "react-icons": "^5.2.1",
     "react-leaflet": "^4.2.1",
@@ -44,7 +51,8 @@
     "react-select": "^5.8.0",
     "react-slick": "^0.30.2",
     "redux": "^5.0.1",
-    "redux-persist": "^6.0.0"
+    "redux-persist": "^6.0.0",
+    "yup": "^1.4.0"
   },
   "devDependencies": {
     "@types/lodash.debounce": "^4.0.9",
@@ -61,6 +69,6 @@
     "postcss": "^8.4.40",
     "tailwindcss": "^3.4.7",
     "typescript": "^5.2.2",
-    "vite": "^5.3.4"
+    "vite": "^5.4.8"
   }
 }

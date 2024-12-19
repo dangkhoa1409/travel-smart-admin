@@ -5,7 +5,7 @@ const AdminNav = () => {
     const navigate = useNavigate();
 
     const handleLoggout = () => {
-        navigate("/Login");
+        navigate("/");
         localStorage.removeItem("user")
     }
 

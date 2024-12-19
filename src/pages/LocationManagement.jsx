@@ -5,17 +5,33 @@ import { toast, Toaster } from "react-hot-toast";
 import Sidebar from "../components/Sidebar/Sidebar";
 import LocationSidebar from "../components/Sidebar/LocationSidebar";
 import { useNavigate } from "react-router-dom";
+import { Pagination } from "@mui/material";
+import LocationStatusModel from "../components/Modal/LocationStatusModel";
 
 const LocationManagement = () => {
-  const [locationData, setLocationData] = useState([]);
+  const [locationData, setLocationData] = useState({});
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
-
+  const [page, setNextPage] = useState(1);
+  const [activeModalId, setActiveModalId] = useState(null);
+   const handleToggleModal = (id) => {
+    setActiveModalId(activeModalId === id ? null : id); // Close if it's already open
+};
   const accessToken = JSON.parse(localStorage.getItem("user"))
 
+  const handleLocationStatus = (status) => {
+    if (status === "success") {
+      toast.success("Sửa thành công");
+      setSelectedLocation(null)
+      fetchLocationData()
+    } else {
+      toast.error("Sửa thất bại");
+    }
+  };
+
   const fetchLocationData = () => {
-    fetch("http://localhost:8888/api/v1/location/locations/news?limit=10", {
+    fetch(`http://localhost:8888/api/v1/location/locations/all?page=${page}&limit=7`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -23,8 +39,14 @@ const LocationManagement = () => {
       },
     })
       .then((response) => response.json())
-      .then((data) => {
-        setLocationData(data?.result);
+      .then((result) => {
+        console.log(result)
+        const sortedData = result.result.data.sort((a, b) => {
+          const placeIdA = String(a.place_id || "").toLowerCase(); 
+          const placeIdB = String(b.place_id || "").toLowerCase();
+          return placeIdA.localeCompare(placeIdB);
+        });
+        setLocationData({paging: result.result.paging,data: sortedData});
       })
       .catch((error) => {
         console.error("Error fetching location data:", error);
@@ -33,41 +55,54 @@ const LocationManagement = () => {
 
   useEffect(() => {
     fetchLocationData();
-  }, []);
+  }, [page]);
 
   const handleRowClick = (location, index) => {
     setSelectedLocation(location, index); // Set selected location
   };
 
-  // const handleInputChange = (e) => {
-  //   const { name, value } = e.target;
-  //   setEditedUserData((prevData) => ({
-  //     ...prevData,
-  //     [name]: value,
-  //   }));
-  // };
+  const handleChange = (event, value) => {
+    console.log(value);
+    setNextPage(value);
+  };
+  const handleChangeStatusBlog = async (id, status) => {
+    try {
+      const data = {
+        status,
+      };
+      const response = await fetch(
+        `http://localhost:8888/api/v1/location/locations/status/${id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken.result.accessToken}`,
+          },
+          body: JSON.stringify(data),
+        }
+      );
 
-  // const deleteConfirmed = (item) => {
-  //   fetch(`http://localhost:3000/user/${item.id}`, {
-  //     method: "DELETE",
-  //     headers: {
-  //       "Content-Type": "application/json",
-  //     },
-  //   })
-  //     .then((response) => response.json())
-  //     .then(() => {
-  //       toast.success("Xoá thành công");
-  //       fetchUserData(); // Fetch lại data sau khi xoá
-  //     })
-  //     .catch((error) => {
-  //       console.error("Error:", error);
-  //     });
-  // };
-
+      const result = await response.json();
+      if (result) {
+        console.log(id);
+        
+        setLocationData({
+          ...locationData,
+          data: [
+            ...locationData.data.map((item) => {
+              return item[`place_id`] === id ? { ...item, status } : { ...item };
+            }),
+          ],
+        });
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
   return (
-    <div className="flex flex-col sm:flex-row">
+    <div className="flex h-screen">
       <Sidebar />
-      <div className="h-full w-full flex flex-col p-3 dark:bg-gray-50 dark:text-gray-800">
+      <div className="w-full flex flex-col p-3 dark:bg-gray-50 dark:text-gray-800 overflow-y-auto">
         <Toaster />
         <AdminNav />
         <div
@@ -82,7 +117,7 @@ const LocationManagement = () => {
               Bản đồ
             </button>
           </div>
-          <div className="overflow-x-auto">
+          <div className="">
             <table className="min-w-full text-xs sm:text-sm">
               <colgroup>
                 <col />
@@ -102,11 +137,12 @@ const LocationManagement = () => {
                   <th className="p-2 text-xl border">Lat</th>
                   <th className="p-2 text-xl border">Lon</th>
                   <th className="p-2 text-xl border">Country</th>
+                  <th className="p-2 text-xl border">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {Array.isArray(locationData) ? (
-                  locationData.map((item, index) => (
+                {locationData &&  Array.isArray(locationData.data) ? (
+                  locationData.data.map((item, index) => (
                     <tr
                       key={index}
                       className="border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-50 hover:bg-gray-100 cursor-pointer"
@@ -119,6 +155,11 @@ const LocationManagement = () => {
                       <td className="p-2 border text-sm">{item?.lat}</td>
                       <td className="p-2 border text-sm">{item?.lon}</td>
                       <td className="p-2 border text-sm text-center">{item?.address?.country}</td>
+                      <td className="p-2 border" onClick={(e) => e.stopPropagation()}>
+                       <div className="relative">
+                        <LocationStatusModel location={item} handleBlogStatus={handleChangeStatusBlog}/>
+                       </div>
+                      </td>
                     </tr>
                   ))
                 ) : (
@@ -128,6 +169,15 @@ const LocationManagement = () => {
                 )}
               </tbody>
             </table>
+            {locationData && (
+              <div className="flex justify-center mt-5">
+                <Pagination
+                  count={locationData?.paging?.totalPages}
+                  page={page}
+                  onChange={handleChange}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -137,6 +187,7 @@ const LocationManagement = () => {
             locationData={selectedLocation}
             locationPosition="right"
             onClose={() => setSelectedLocation(null)}
+            onEditSuccess={handleLocationStatus}
           />
         )}
 
