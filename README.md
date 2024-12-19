@@ -7,8 +7,7 @@ This template provides a minimal setup to get React working in Vite with HMR and
 
 ## Start Project:
 ### Start Backend:
- To run this project, first you need to start backend
- Following these steps in this github
+ To run this project, first you need to start backend by following these steps in this github
  https://github.com/ngotuankiet241103/travel-smart-backend
 
 ### Start Frontend:
