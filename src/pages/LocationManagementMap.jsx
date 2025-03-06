@@ -14,7 +14,7 @@ import L from "leaflet";
 import userOnMapIcon from "../assets/user_on_map_2.png";
 import { useNavigate } from "react-router-dom";
 import LocationSidebar from "../components/Sidebar/LocationSidebar";
-import { removeVietnameseTones } from "../components/Admin/removeVietnameseTones";
+// import { removeVietnameseTones } from "../components/Admin/removeVietnameseTones";
 import toast, { Toaster } from "react-hot-toast";
 import useToggle from "../hooks/useToggle";
 
@@ -127,7 +127,7 @@ const LocationManagementMap = () => {
   const handleSearchByInput = useCallback(
     debounce(async (string) => {
       const url = `http://localhost:8888/api/v1/location/locations?q=${string}&limit=5&type=FUNCTIONAL`;
-
+  
       try {
         const response = await fetch(url, {
           method: "GET",
@@ -156,15 +156,15 @@ const LocationManagementMap = () => {
         console.error("Error fetching user data:", error);
       }
     }, 500),
-    []
+    [accessToken]
   );
 
   const handleInputChange = (e) => {
     const value = e.target.value;
     setLocationName(value); // Update input value
     handleSearchByInput(value.trim()); // Call the debounced function
-    // trim here
     setIsSearchShowing(true);
+    setClickedPosition(null); // Clear clicked position when typing in the input field
   };
 
   const handleLocationSearchClicked = (data) => {
@@ -419,7 +419,7 @@ const LocationManagementMap = () => {
                         height="18"
                         width="18"
                         viewBox="0 0 512 512"
-                        onClick={() => handleSearchByInput()}
+                        onClick={() => handleSearchByInput(locationName)}
                       >
                         <path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z" />
                       </svg>
@@ -431,7 +431,7 @@ const LocationManagementMap = () => {
                           width="24"
                           viewBox="0 0 512 512"
                           className="mr-6"
-                          onClick={() => handleSearchByInput()}
+                          onClick={() => handleSearchByInput(locationName)}
                         >
                           <path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z" />
                         </svg>
