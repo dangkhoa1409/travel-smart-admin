@@ -29,7 +29,7 @@ const LocationManagementMap = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [isInDB, setIsInDB] = useState(false);
   const [isSearchShowing, setIsSearchShowing] = useState(false);
-
+  const [isSearchCompleted,setSearchCompleted] = useState(false);
   const accessToken = JSON.parse(localStorage.getItem("user"));
   const { isToggle: isEditBouding, handleToggle: setEditBouding } = useToggle();
   const [type, setType] = useState("");
@@ -155,6 +155,7 @@ const LocationManagementMap = () => {
       } catch (error) {
         console.error("Error fetching user data:", error);
       }
+     
     }, 500),
     [accessToken]
   );
@@ -164,7 +165,7 @@ const LocationManagementMap = () => {
     setLocationName(value); // Update input value
     handleSearchByInput(value.trim()); // Call the debounced function
     setIsSearchShowing(true);
-    setClickedPosition(null); // Clear clicked position when typing in the input field
+    // Clear clicked position when typing in the input field
   };
 
   const handleLocationSearchClicked = (data) => {
@@ -218,11 +219,7 @@ const LocationManagementMap = () => {
   }, []);
 
   // Reset isSettingNewPosition when location data is set
-  useEffect(() => {
-    if (locationData) {
-      setIsSettingNewPosition(false); // Reset the flag after fetching location data
-    }
-  }, [locationData]);
+  
 
   // Marker for clicked position
   const LocationMarker = () => {
@@ -341,7 +338,12 @@ const LocationManagementMap = () => {
     if (markerRef.current) {
       markerRef.current.openPopup();
     }
-  }, [locationName]);
+  }, [isSearchCompleted]);
+  useEffect(() => {
+    if (locationData) {
+      setIsSettingNewPosition(false); // Reset the flag after fetching location data
+    }
+  }, [locationData]);
 
   const handleLocationStatus = (status, type) => {
     if (status === "success") {

@@ -19,6 +19,7 @@ const Sidebar = () => {
     if (location.pathname === "/Role") return "role";
     if (location.pathname === "/Permission") return "permission";
     if (location.pathname === "/Account") return "account";
+    if (location.pathname === "/Dashboard") return "dashboard";
     return "";
   };
   const activeState = getActiveState();
@@ -45,6 +46,9 @@ const Sidebar = () => {
       case "permission":
         navigate("/Permission");
         break;
+      case "dashboard":
+        navigate("/Dashboard");
+        break
       default:
         break;
     }
@@ -65,6 +69,46 @@ const Sidebar = () => {
         </div>
         <div className="flex-1 flex flex-col justify-between divide-y-2 dark:divide-gray-300">
           <ul className="pt-2 pb-4 space-y-1 text-sm">
+          <li>
+              <a
+                rel="noopener noreferrer"
+                href="#"
+                className={`flex items-center p-2 space-x-3 rounded-md ${activeState === "dashboard" ? "active" : ""}`}
+                onClick={() => handleNavigation("dashboard")}
+              >
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                  <g
+                    id="SVGRepo_tracerCarrier"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  ></g>
+                  <g id="SVGRepo_iconCarrier">
+                    {" "}
+                    <path
+                      d="M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z"
+                      stroke="#000000"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>{" "}
+                    <path
+                      d="M12 14C8.13401 14 5 17.134 5 21H19C19 17.134 15.866 14 12 14Z"
+                      stroke="#000000"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>{" "}
+                  </g>
+                </svg>
+                <span>Trang chủ</span>
+              </a>
+            </li>
             <li>
               <a
                 rel="noopener noreferrer"

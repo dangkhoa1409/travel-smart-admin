@@ -7,6 +7,7 @@ import "./index.css";
 import LoadingTriangle from "./components/Loading/LoadingTriangle";
 import BlogAdd from './pages/BlogAdd';
 import BlogEdit from "./pages/BlogEdit";
+import Dashboard from "./pages/Dashboard";
 const ManagementLogin = lazy(() => import("./pages/ManagementLogin"));
 const LocationManagementMap = lazy(
   () => import("./pages/LocationManagementMap")
@@ -34,6 +35,7 @@ function App() {
         <UserProvider>
           <Routes>
             <Route index element={<ManagementLogin />} />
+            <Route path="Dashboard" element={<Dashboard />} />
             <Route path="Home" element={<UserManagement />} />
             <Route path="Location" element={<LocationManagement />} />
             <Route path="Map" element={<LocationManagementMap />} />
