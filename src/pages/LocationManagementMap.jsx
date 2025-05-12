@@ -119,15 +119,16 @@ const LocationManagementMap = () => {
         );
         console.log(data);
       }
+      
     } catch (error) {
       console.error("Error fetching user data:", error);
     }
   };
 
-  const handleSearchByInput = useCallback(
-    debounce(async (string) => {
+  const handleSearchByInput = async (string) => {
       const url = `http://localhost:8888/api/v1/location/locations?q=${string}&limit=5&type=FUNCTIONAL`;
-  
+      
+      
       try {
         const response = await fetch(url, {
           method: "GET",
@@ -137,37 +138,42 @@ const LocationManagementMap = () => {
           },
         });
         const data = await response.json();
+        console.log(data);
+        
         if (
-          data.result &&
-          data.result.some(
-            (location) => location.address.country === "Việt Nam"
-          )
+          data.result.length > 0 &&
+          data.result.some((location) => location.address.country === "Việt Nam")
         ) {
           setSearchResults(
             data.result.filter(
               (location) => location.address.country === "Việt Nam"
             )
           );
-          console.log(data);
+          setIsInDB(false);
         } else {
           handleWhenNoInputSearchFound(string);
+     
+          setIsInDB(true);
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
       }
      
-    }, 500),
+    }
+
+ 
+  const handleInputChange = useCallback(
+    debounce((e) => {
+    
+      const value = e.target.value;
+      console.log(e);
+      
+          setLocationName(value); // Update input value
+      handleSearchByInput(value.trim()); // Call the debounced function
+      setIsSearchShowing(true);
+    }, 2000),
     [accessToken]
   );
-
-  const handleInputChange = (e) => {
-    const value = e.target.value;
-    setLocationName(value); // Update input value
-    handleSearchByInput(value.trim()); // Call the debounced function
-    setIsSearchShowing(true);
-    // Clear clicked position when typing in the input field
-  };
-
   const handleLocationSearchClicked = (data) => {
     setClickedPosition(null);
     setIsSearchShowing(false);
@@ -405,7 +411,7 @@ const LocationManagementMap = () => {
                   <input
                     type="text"
                     id="locationName"
-                    value={locationName}
+                    
                     onChange={handleInputChange}
                     onClick={() => {
                       setLocationName("");
